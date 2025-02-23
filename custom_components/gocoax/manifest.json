@@ -5,5 +5,6 @@
   "documentation": "https://github.com/dewgenenny/hagocoax",
   "requirements": [],
   "codeowners": ["@dewgenenny"],
-  "iot_class": "local_polling"
+  "iot_class": "local_polling",
+  "config_flow": true
 }
