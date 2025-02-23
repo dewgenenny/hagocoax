@@ -1,0 +1,9 @@
+{
+  "domain": "gocoax",
+  "name": "GoCoax Integration",
+  "version": "0.1.0",
+  "documentation": "https://github.com/dewgenenny/hagocoax",
+  "requirements": [],
+  "codeowners": ["@dewgenenny"],
+  "iot_class": "local_polling"
+}
