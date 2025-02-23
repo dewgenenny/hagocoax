@@ -11,6 +11,9 @@ A custom [Home Assistant](https://www.home-assistant.io/) integration to monitor
 Developed and tested with GoCoax MoCA 2.5 adapters, though it may work with other MaxLinear-based MoCA devices that expose similar endpoints.
 
 ---
+![img_1.png](img_1.png)
+
+![img.png](img.png)
 
 ## Features
 
