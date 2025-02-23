@@ -1,85 +1,73 @@
 """Helper API calls for GoCoax integration."""
-
 import requests
-from requests.auth import HTTPDigestAuth  # Uncomment if the device uses digest
+from requests.auth import HTTPDigestAuth
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Global endpoints from your code
+ENDPOINTS = {
+    'devStatus': '/devStatus.html',
+    'phyRates': '/phyRates.html',
+    'localInfo': '/ms/0/0x15',
+    'netInfo': '/ms/0/0x16',
+    'fmrInfo': '/ms/0/0x1D',
+    'miscphyinfo': '/ms/0/0x24',
+    'macInfo': '/ms/1/0x103/GET',
+    'frameInfo': '/ms/0/0x14',
+    'lof': '/ms/0/0x1003/GET',
+    'ipAddr': '/ms/1/0x20b/GET',
+    'ChipID': '/ms/1/0x303/GET',
+    'gpio': '/ms/1/0xb17',
+    'miscm25phyinfo': '/ms/0/0x7f',
+}
 
 
 def validate_connection(host: str, username: str, password: str) -> bool:
     """
     Attempt to retrieve the devStatus page to confirm credentials are valid.
-    Used by config_flow to test connection before creating a config entry.
+    Used in config_flow to test connectivity before creating a config entry.
     """
     base_url = f"http://{host}"
     session = requests.Session()
-
-    # If the device only needs Basic Auth:
+    # Basic auth (uncomment Digest if you need it)
     session.auth = (username, password)
-
-    # If the device needs Digest Auth, then use:
     # session.auth = HTTPDigestAuth(username, password)
 
-    dev_status_url = base_url + "/devStatus.html"
-    response = session.get(dev_status_url, verify=False, timeout=5)
-    response.raise_for_status()
+    dev_status_url = base_url + ENDPOINTS['devStatus']
+    resp = session.get(dev_status_url, verify=False, timeout=5)
+    resp.raise_for_status()
 
-    # If we got here with no exception, we assume credentials/connection are valid
     return True
 
 
 class GoCoaxAPI:
     """
-    A Python API for GoCoax MoCA Adapters, adapted from your original script.
-    Provides methods to:
-      - retrieve_device_info()   -> returns raw device data
-      - display_device_info()    -> parse the raw data into sensor-friendly fields
-      - (Optionally) get_phy_rates() for advanced MoCA rates, if desired.
+    A Python API for GoCoax MoCA adapters, adapted from your original scripts.
+    Provides:
+      - retrieve_device_info(): collects all device info
+      - display_device_info(): parse raw data -> dictionary of main sensors
+      - get_phy_rates(): calculates node-to-node PHY rates
     """
 
     def __init__(self, host: str, username: str, password: str):
-        """
-        Initialize the GoCoaxAPI with credentials and set up the session.
-        """
         self._base_url = f"http://{host}"
         self._session = requests.Session()
-
-        # Basic Auth by default:
         self._session.auth = (username, password)
-
-        # For Digest Auth (uncomment if needed):
+        # For digest:
         # self._session.auth = HTTPDigestAuth(username, password)
 
-        # Endpoints from your original code
-        self.endpoints = {
-            'devStatus': '/devStatus.html',   # to retrieve the CSRF token
-            'phyRates': '/phyRates.html',     # for referer in the headers
-            'localInfo': '/ms/0/0x15',
-            'netInfo': '/ms/0/0x16',
-            'fmrInfo': '/ms/0/0x1D',
-            'miscphyinfo': '/ms/0/0x24',
-            'macInfo': '/ms/1/0x103/GET',
-            'frameInfo': '/ms/0/0x14',
-            'lof': '/ms/0/0x1003/GET',
-            'ipAddr': '/ms/1/0x20b/GET',
-            'ChipID': '/ms/1/0x303/GET',
-            'gpio': '/ms/1/0xb17',
-            'miscm25phyinfo': '/ms/0/0x7f',
-        }
+        # We store endpoints in an instance attribute if needed
+        # or just refer to the global ENDPOINTS dict
+        self.endpoints = ENDPOINTS
 
-    # --------------------------------------------------------------------------------
-    # Simple request helpers
-    # --------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # Basic HTTP helpers (same as your code)
+    # --------------------------------------------------------------------------
     def get_csrf_token(self):
-        """Return the current CSRF token from session cookies, if any."""
         return self._session.cookies.get('csrf_token')
 
-    def post_data(self, action_url, payload_dict=None, referer=None, payload_format='json'):
-        """
-        Perform a POST request with optional JSON or form payload, returning the parsed JSON.
-        Adjusted from your original code.
-        """
+    def post_data(self, action_url, payload_dict=None, referer=None, payload_format='json', debug=False):
         url = self._base_url + action_url
         csrf_token = self.get_csrf_token()
 
@@ -90,18 +78,17 @@ class GoCoaxAPI:
             'Accept-Encoding': 'gzip, deflate',
             'Accept-Language': 'en-US,en;q=0.9',
         }
-        # Default referer if none provided
-        headers['Referer'] = self._base_url + (referer if referer else self.endpoints['devStatus'])
+        if referer:
+            headers['Referer'] = self._base_url + referer
+        else:
+            headers['Referer'] = self._base_url + ENDPOINTS['devStatus']
 
-        # If JSON payload
         if payload_format == 'json':
             headers['Accept'] = 'application/json, text/javascript, */*; q=0.01'
             headers['Content-Type'] = 'application/json'
             if payload_dict is None:
                 payload_dict = {"data": []}
             data_to_send = payload_dict
-
-        # If form data
         else:
             headers['Accept'] = 'text/html, */*'
             headers['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -117,10 +104,7 @@ class GoCoaxAPI:
         resp.raise_for_status()
         return resp.json()
 
-    def get_data(self, action_url, referer=None):
-        """
-        Perform a GET request, returning a requests.Response (not JSON-decoded).
-        """
+    def get_data(self, action_url, referer=None, debug=False):
         url = self._base_url + action_url
         csrf_token = self.get_csrf_token()
 
@@ -139,74 +123,57 @@ class GoCoaxAPI:
         resp.raise_for_status()
         return resp
 
-    # --------------------------------------------------------------------------------
-    # Retrieve device info (raw data) - from your original code
-    # --------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # retrieve_device_info + display_device_info
+    # (Your standard device info scraping and parsing)
+    # --------------------------------------------------------------------------
     def retrieve_device_info(self):
-        """
-        Hit devStatus.html to get CSRF token, then gather multiple MoCA data points
-        (localInfo, netInfo, macInfo, frameInfo, etc.). Return them in a dictionary.
-        """
-        # 1) Access devStatus to get CSRF
-        dev_status_url = self._base_url + self.endpoints['devStatus']
+        """Collect many device info fields and return as a dict of raw data."""
+        dev_status_url = self._base_url + ENDPOINTS['devStatus']
         resp = self._session.get(dev_status_url, verify=False)
         resp.raise_for_status()
 
-        csrf_token = self.get_csrf_token()
-        if not csrf_token:
-            raise ValueError("Failed to retrieve CSRF token from GoCoax device.")
+        if not self.get_csrf_token():
+            raise ValueError("Failed to retrieve CSRF token.")
 
         device_info = {}
 
         # localInfo
-        local_info = self.post_data(self.endpoints['localInfo'])
+        local_info = self.post_data(ENDPOINTS['localInfo'])
         device_info['localInfo'] = local_info['data']
         myNodeId = int(device_info['localInfo'][0], 16)
 
-        # miscphyinfo
-        miscphyinfo = self.post_data(self.endpoints['miscphyinfo'])
-        device_info['miscphyinfo'] = miscphyinfo['data']
-
-        # netInfo
-        payload_dict = {"data": [myNodeId]}
-        net_info = self.post_data(self.endpoints['netInfo'], payload_dict=payload_dict)
+        # ... same pattern for netInfo, macInfo, etc. ...
+        net_info = self.post_data(ENDPOINTS['netInfo'], payload_dict={"data": [myNodeId]})
         device_info['netInfo'] = net_info['data']
 
-        # macInfo
-        mac_info = self.post_data(self.endpoints['macInfo'], payload_dict={"data": [myNodeId]})
+        mac_info = self.post_data(ENDPOINTS['macInfo'], payload_dict={"data": [myNodeId]})
         device_info['macInfo'] = mac_info['data']
 
-        # frameInfo
-        frame_info = self.post_data(self.endpoints['frameInfo'], payload_dict={"data": [0]})
+        frame_info = self.post_data(ENDPOINTS['frameInfo'], payload_dict={"data": [0]})
         device_info['frameInfo'] = frame_info['data']
 
-        # lof
-        lof = self.post_data(self.endpoints['lof'])
+        lof = self.post_data(ENDPOINTS['lof'])
         device_info['lof'] = lof['data']
 
-        # ipAddr
-        ip_addr = self.post_data(self.endpoints['ipAddr'])
+        ip_addr = self.post_data(ENDPOINTS['ipAddr'])
         device_info['ipAddr'] = ip_addr['data']
 
-        # chipId
-        chip_id = self.post_data(self.endpoints['ChipID'])
+        chip_id = self.post_data(ENDPOINTS['ChipID'])
         device_info['chipId'] = chip_id['data']
 
-        # gpio
-        gpio = self.post_data(self.endpoints['gpio'], payload_dict={"data": [0]})
+        gpio = self.post_data(ENDPOINTS['gpio'], payload_dict={"data": [0]})
         device_info['gpio'] = gpio['data']
 
-        # miscm25phyinfo
-        miscm25phyinfo = self.post_data(self.endpoints['miscm25phyinfo'])
+        miscm25phyinfo = self.post_data(ENDPOINTS['miscm25phyinfo'])
         device_info['miscm25phyinfo'] = miscm25phyinfo['data']
+
+        miscphyinfo = self.post_data(ENDPOINTS['miscphyinfo'])
+        device_info['miscphyinfo'] = miscphyinfo['data']
 
         return device_info
 
-    # --------------------------------------------------------------------------------
-    # Helpers for display_device_info
-    # --------------------------------------------------------------------------------
     def byte2ascii(self, hex_str):
-        """Convert a hex string to ASCII, ignoring out-of-range bytes."""
         try:
             bytes_obj = bytes.fromhex(hex_str)
             ascii_str = ''
@@ -220,7 +187,6 @@ class GoCoaxAPI:
             return ''
 
     def hex2mac(self, hi, lo):
-        """Convert two integers hi & lo into a MAC address string."""
         mac_parts = [
             f"{(hi >> 24) & 0xFF:02x}",
             f"{(hi >> 16) & 0xFF:02x}",
@@ -231,34 +197,28 @@ class GoCoaxAPI:
         ]
         return ':'.join(mac_parts)
 
-    # --------------------------------------------------------------------------------
-    # Processes the raw device_info into a dictionary of sensor-friendly values
-    # (Essentially your display_device_info logic, but returning data instead of printing)
-    # --------------------------------------------------------------------------------
     def display_device_info(self, device_info):
         """
-        Convert the raw data from retrieve_device_info() into a dictionary
-        suitable for sensor values: SoC version, IP, link status, etc.
+        Process raw device info (localInfo, netInfo, etc.) -> dictionary of sensor-friendly values.
         """
         local_info = device_info['localInfo']
-        miscphyinfo = device_info['miscphyinfo']
         net_info = device_info['netInfo']
         mac_info = device_info['macInfo']
         frame_info = device_info['frameInfo']
         lof = device_info['lof']
         ip_addr = device_info['ipAddr']
         chip_id = device_info['chipId']
+        miscphyinfo = device_info['miscphyinfo']
         gpio = device_info['gpio']
         miscm25phyinfo = device_info['miscm25phyinfo']
 
-        # MoCA versions
+        # Sample parsing logic from your original script
         nwMocaVer = int(local_info[11], 16)
         nwMocaVerVal = f"{(nwMocaVer >> 4) & 0xF}.{nwMocaVer & 0xF}"
 
         linkStatus = int(local_info[5], 16)
         linkStatusVal = "Up" if linkStatus else "Down"
 
-        # SoC Version
         socVersion = ''
         i = 0
         while True:
@@ -272,7 +232,6 @@ class GoCoaxAPI:
             socVersion += retVal
             i += 1
 
-        # Chip ID / name
         chipArray = ["MXL370x", "MXL371x", "UNKNOWN"]
         chipIdInt = int(chip_id[0], 16)
         chipIdIndex = chipIdInt - 0x15
@@ -281,32 +240,31 @@ class GoCoaxAPI:
         chipName = chipArray[chipIdIndex]
         socVersionVal = f"{chipName}.{socVersion}"
 
-        # MAC Address
         hi = int(mac_info[0], 16)
         lo = int(mac_info[1], 16)
         macAddressVal = self.hex2mac(hi, lo)
 
-        # My MoCA version
         myMocaVer = int(net_info[4], 16)
         myMocaVerVal = f"{(myMocaVer >> 4) & 0xF}.{myMocaVer & 0xF}"
 
-        # Ethernet stats
+        # Ethernet TX stats
         txgood = ((int(frame_info[12], 16) & 0xFFFFFFFF) * 4294967296) + int(frame_info[13], 16)
         txbad = ((int(frame_info[30], 16) & 0xFFFFFFFF) * 4294967296) + int(frame_info[31], 16)
         txdropped = ((int(frame_info[48], 16) & 0xFFFFFFFF) * 4294967296) + int(frame_info[49], 16)
 
+        # Ethernet RX stats
         rxgood = ((int(frame_info[66], 16) & 0xFFFFFFFF) * 4294967296) + int(frame_info[67], 16)
         rxbad = ((int(frame_info[84], 16) & 0xFFFFFFFF) * 4294967296) + int(frame_info[85], 16)
         rxdropped = ((int(frame_info[102], 16) & 0xFFFFFFFF) * 4294967296) + int(frame_info[103], 16)
 
-        # IP address
+        # IP
         ipAddrInt = int(ip_addr[0], 16)
         ipAddrVal = f"{(ipAddrInt >> 24) & 0xFF}.{(ipAddrInt >> 16) & 0xFF}.{(ipAddrInt >> 8) & 0xFF}.{ipAddrInt & 0xFF}"
 
         # LOF
         lofVal = int(lof[0], 16)
 
-        # Return final dictionary for sensors
+        # Return as dictionary
         return {
             "soc_version": socVersionVal,
             "my_moca_version": myMocaVerVal,
@@ -323,10 +281,192 @@ class GoCoaxAPI:
             "eth_rx_dropped": rxdropped,
         }
 
-    # --------------------------------------------------------------------------------
-    # Optional: If you want to gather PHY Rates too, add your get_phy_rates here
-    # and call it from the sensor or coordinator code.
-    # --------------------------------------------------------------------------------
-    # def get_phy_rates(self):
-    #     ...
-    #     return some_dict_of_phy_rates
+    # --------------------------------------------------------------------------
+    # get_phy_rates: calculates node-to-node rates (your original code, adapted)
+    # --------------------------------------------------------------------------
+    def get_phy_rates(self, debug=False):
+        """
+        Gather node-to-node PHY rates, returning a dictionary:
+          {
+            "nodes": [list of active node IDs],
+            "rates": 2D array [id_index][jd_index],
+            "gcd_rates": array
+          }
+        """
+        # Constants
+        MAX_NUM_NODES = 16
+        LDPC_LEN_100MHZ = 3900
+        LDPC_LEN_50MHZ = 1200
+        FFT_LEN_100MHZ = 512
+        FFT_LEN_50MHZ = 256
+
+        # Step 0: Access phyRates.html to init CSRF
+        phy_rates_url = self._base_url + ENDPOINTS['phyRates']
+        headers = {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'text/html, */*',
+            'Connection': 'keep-alive',
+        }
+        resp = self._session.get(phy_rates_url, headers=headers, verify=False)
+        resp.raise_for_status()
+
+        if not self.get_csrf_token():
+            if debug:
+                print("Failed to retrieve CSRF token for phyRates.")
+            return None
+
+        # Initialize data structures
+        rateNper = [[0]*MAX_NUM_NODES for _ in range(MAX_NUM_NODES)]
+        rateVlper = [[0]*MAX_NUM_NODES for _ in range(MAX_NUM_NODES)]
+        rateGcd = [0]*MAX_NUM_NODES
+        netInfo = [None]*MAX_NUM_NODES
+        fmrInfo = [None]*MAX_NUM_NODES
+        nodeId = []
+
+        # Step 1: localInfo
+        local_info_resp = self.post_data(ENDPOINTS['localInfo'], debug=debug)
+        LocalInfo = local_info_resp['data']
+        myNodeID = int(LocalInfo[0], 16)
+        mocaNetVer = int(LocalInfo[11], 16)
+        nodeBitMask = int(LocalInfo[12], 16)
+        ncNodeID = int(LocalInfo[1], 16) & 0xFF
+
+        # Step 2: netInfo for each node
+        for node_id in range(MAX_NUM_NODES):
+            currNodeMask = 1 << node_id
+            if nodeBitMask & currNodeMask:
+                payload_dict = {"data": [node_id]}
+                net_info_resp = self.post_data(ENDPOINTS['netInfo'], payload_dict=payload_dict, debug=debug)
+                netInfo[node_id] = net_info_resp['data']
+                nodeId.append(node_id)
+            else:
+                netInfo[node_id] = None
+
+        # NC's MoCA version
+        ncMocaVer = int(netInfo[ncNodeID][4], 16) & 0xFF
+
+        # Step 3: fmrInfo for each node
+        for node_id in nodeId:
+            nodeMocaVer = int(netInfo[node_id][4], 16) & 0xFF
+            mocaVer = min(ncMocaVer, nodeMocaVer)
+            finalVer = 1 if mocaVer < 0x20 else 2
+            currNodeMask = 1 << node_id
+
+            payload_dict = {"data": [currNodeMask, finalVer]}
+            fmr_info_resp = self.post_data(
+                ENDPOINTS['fmrInfo'],
+                payload_dict=payload_dict,
+                payload_format='json',
+                debug=debug
+            )
+            fmrInfo[node_id] = fmr_info_resp['data']
+
+        # Step 4: Calculate PHY rates
+        for id_index, id_val in enumerate(nodeId):
+            entryNodePayloadVer = min(int(netInfo[id_val][4], 16) & 0xFF, ncMocaVer)
+            readIndx = 10
+            alignmentFlag = True
+            rateGcd[id_index] = 0
+            mocaNodeVer = int(netInfo[id_val][4], 16) & 0xFF
+
+            for jd_index, jd_val in enumerate(nodeId):
+                node_jd_mocaNodeVer = int(netInfo[jd_val][4], 16) & 0xFF
+                if ncMocaVer < 0x20:
+                    fmrPayloadVer = min(entryNodePayloadVer, node_jd_mocaNodeVer)
+                else:
+                    fmrPayloadVer = mocaNodeVer
+
+                fmr_data = fmrInfo[id_val]
+                try:
+                    if fmrPayloadVer in (0x20, 0x25):
+                        # MoCA 2.x
+                        if alignmentFlag:
+                            val1 = int(fmr_data[readIndx], 16)
+                            gapNper = (val1 >> 24) & 0xFF
+                            gapVLper = (val1 >> 16) & 0xFF
+                            ofdmbNper = val1 & 0xFFFF
+                            val2 = int(fmr_data[readIndx+1], 16)
+                            ofdmbVLper = (val2 >> 16) & 0xFFFF
+                            readIndx += 1
+                        else:
+                            val1 = int(fmr_data[readIndx], 16)
+                            gapNper = (val1 >> 8) & 0xFF
+                            gapVLper = val1 & 0xFF
+                            val2 = int(fmr_data[readIndx+1], 16)
+                            ofdmbNper = (val2 >> 16) & 0xFFFF
+                            ofdmbVLper = val2 & 0xFFFF
+                            readIndx += 2
+                    else:
+                        # MoCA 1.x
+                        gapVLper = 0
+                        ofdmbVLper = 0
+                        val = int(fmr_data[readIndx], 16)
+                        if alignmentFlag:
+                            gapNper = (val & 0xF8000000) >> 27
+                            ofdmbNper = (val & 0x07FF0000) >> 16
+                        else:
+                            gapNper = (val & 0x0000F800) >> 11
+                            ofdmbNper = val & 0x000007FF
+                            readIndx += 1
+
+                    alignmentFlag = not alignmentFlag
+
+                    # Calculate PHY rates
+                    if gapVLper == 0:
+                        rateVlper[id_index][jd_index] = 0
+                    else:
+                        rateVlper[id_index][jd_index] = (
+                                                                LDPC_LEN_100MHZ * ofdmbVLper
+                                                        ) // (
+                                                                (FFT_LEN_100MHZ + ((gapVLper + 10) * 2)) * 46
+                                                        )
+
+                    if gapNper == 0:
+                        rateNper[id_index][jd_index] = 0
+                    elif gapVLper == 0 and fmrPayloadVer == 0x20:
+                        # MoCA 2.x but 50MHz?
+                        rateNper[id_index][jd_index] = (
+                                                               LDPC_LEN_50MHZ * ofdmbNper
+                                                       ) // (
+                                                               (FFT_LEN_50MHZ + (gapNper * 2 + 10)) * 26
+                                                       )
+                    else:
+                        # MoCA 2.x 100MHz?
+                        rateNper[id_index][jd_index] = (
+                                                               LDPC_LEN_100MHZ * ofdmbNper
+                                                       ) // (
+                                                               (FFT_LEN_100MHZ + ((gapNper + 10) * 2)) * 46
+                                                       )
+
+                    # Calculate GCD
+                    if id_val == jd_val:
+                        if (mocaNodeVer & 0xF0) == 0x10:
+                            # MoCA 1.x
+                            gapGcd = gapNper
+                            ofdmbGcd = ofdmbNper
+                            rateGcd[id_index] = (
+                                                        LDPC_LEN_50MHZ * ofdmbGcd
+                                                ) // (
+                                                        (FFT_LEN_50MHZ + (gapGcd * 2 + 10)) * 26
+                                                )
+                        elif (mocaNodeVer & 0xF0) == 0x20:
+                            # MoCA 2.x
+                            gapGcd = gapNper
+                            ofdmbGcd = ofdmbNper
+                            rateGcd[id_index] = (
+                                                        LDPC_LEN_100MHZ * ofdmbGcd
+                                                ) // (
+                                                        (FFT_LEN_100MHZ + ((gapGcd + 10) * 2)) * 46
+                                                )
+                except Exception as e:
+                    if debug:
+                        print(f"Error parsing FMR data for node {id_val}: {e}")
+                    rateNper[id_index][jd_index] = 0
+                    rateVlper[id_index][jd_index] = 0
+
+        # Return the structure needed
+        return {
+            "nodes": nodeId,
+            "rates": rateNper,
+            "gcd_rates": rateGcd,
+        }
