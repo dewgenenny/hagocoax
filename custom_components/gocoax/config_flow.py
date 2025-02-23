@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import DOMAIN, CONF_HOST, CONF_USERNAME, CONF_PASSWORD
-from .gocoax_api import GoCoaxAPI
+from .gocoax_api import validate_connection
 
 _LOGGER = logging.getLogger(__name__)
 
