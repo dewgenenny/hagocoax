@@ -1,0 +1,6 @@
+{
+  "name": "GoCoax Integration",
+  "render_readme": true,
+  "domains": ["sensor"],
+  "homeassistant": "2023.2.0"
+}
