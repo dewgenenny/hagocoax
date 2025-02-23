@@ -1,0 +1,19 @@
+{
+  "title": "GoCoax",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure GoCoax",
+        "description": "Enter your GoCoax MoCA adapter details.",
+        "data": {
+          "host": "Host (IP or hostname)",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect, check credentials or device."
+    }
+  }
+}
