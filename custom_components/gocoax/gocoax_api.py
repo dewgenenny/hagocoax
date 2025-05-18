@@ -100,9 +100,24 @@ class GoCoaxAPI:
             headers['X-CSRF-TOKEN'] = csrf_token
             headers['Cookie'] = f'csrf_token={csrf_token}'
 
-        resp = self._session.post(url, json=data_to_send, headers=headers, verify=False)
+        if payload_format == 'json':
+            resp = self._session.post(
+                url, json=data_to_send, headers=headers, verify=False
+            )
+        else:
+            resp = self._session.post(
+                url, data=data_to_send, headers=headers, verify=False
+            )
+
         resp.raise_for_status()
-        return resp.json()
+
+        # When sending form encoded data the response might not be JSON, but
+        # all current callers expect JSON. In case the server returns non JSON
+        # just return an empty dictionary which matches the previous behaviour
+        try:
+            return resp.json()
+        except ValueError:
+            return {}
 
     def get_data(self, action_url, referer=None, debug=False):
         url = self._base_url + action_url
