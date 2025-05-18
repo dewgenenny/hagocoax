@@ -156,13 +156,13 @@ class GoCoaxAPI:
         # localInfo
         local_info = self.post_data(ENDPOINTS['localInfo'])
         device_info['localInfo'] = local_info['data']
-        myNodeId = int(device_info['localInfo'][0], 16)
+        my_node_id = int(device_info['localInfo'][0], 16)
 
         # ... same pattern for netInfo, macInfo, etc. ...
-        net_info = self.post_data(ENDPOINTS['netInfo'], payload_dict={"data": [myNodeId]})
+        net_info = self.post_data(ENDPOINTS['netInfo'], payload_dict={"data": [my_node_id]})
         device_info['netInfo'] = net_info['data']
 
-        mac_info = self.post_data(ENDPOINTS['macInfo'], payload_dict={"data": [myNodeId]})
+        mac_info = self.post_data(ENDPOINTS['macInfo'], payload_dict={"data": [my_node_id]})
         device_info['macInfo'] = mac_info['data']
 
         frame_info = self.post_data(ENDPOINTS['frameInfo'], payload_dict={"data": [0]})
@@ -341,7 +341,7 @@ class GoCoaxAPI:
         # Step 1: localInfo
         local_info_resp = self.post_data(ENDPOINTS['localInfo'], debug=debug)
         LocalInfo = local_info_resp['data']
-        myNodeID = int(LocalInfo[0], 16)
+        my_node_id = int(LocalInfo[0], 16)
         mocaNetVer = int(LocalInfo[11], 16)
         nodeBitMask = int(LocalInfo[12], 16)
         ncNodeID = int(LocalInfo[1], 16) & 0xFF
