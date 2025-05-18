@@ -132,7 +132,7 @@ If multiple MoCA nodes appear on your network, you’ll see multiple from→to s
 - Double-check the password or see if the adapter needs Digest Authentication.
 - In `gocoax_api.py`, switch from basic to `HTTPDigestAuth` if required.
 
-For other issues, open an issue on [GitHub](https://github.com/yourusername/gocoax-homeassistant/issues).
+For other issues, open an issue on [GitHub](https://github.com/dewgenenny/hagocoax/issues).
 
 ---
 
