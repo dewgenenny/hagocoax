@@ -55,7 +55,8 @@ class GoCoaxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     },
                 )
             else:
-                errors["base"] = "cannot_connect"
+                if "base" not in errors:
+                    errors["base"] = "cannot_connect"
 
         # If no user_input yet, or connection failed, show the form again
         data_schema = vol.Schema(

@@ -13,7 +13,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect, check credentials or device."
+      "cannot_connect": "Failed to connect, check credentials or device.",
+      "unknown": "Unknown error occurred."
     }
   }
 }
