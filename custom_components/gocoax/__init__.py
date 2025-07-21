@@ -5,6 +5,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 
+PLATFORMS: list[str] = ["sensor"]
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -22,11 +24,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     Set up a GoCoax device from a config entry.
     This is called after the user completes the config flow.
     """
-    # Forward the entry setup to the sensor platform
-    # so that sensor.py's async_setup_entry is called.
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
+    # Forward the entry setup to the sensor platform so that
+    # sensor.py's async_setup_entry is called. Home Assistant 2025.6
+    # replaced ``async_forward_entry_setup`` with ``async_forward_entry_setups``.
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
@@ -36,5 +37,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     Unload a GoCoax config entry.
     Called when a user removes the integration or disables it.
     """
-    unload_ok = await hass.config_entries.async_forward_entry_unload(entry, "sensor")
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
