@@ -21,6 +21,15 @@ ENDPOINTS = {
     'gpio': '/ms/1/0xb17',
     'miscm25phyinfo': '/ms/0/0x7f',
     'reboot': '/ms/1/0xb00',
+    'restore': '/ms/1/0xb01',
+    'txPowerGet': '/ms/0/0x10a8/GET',
+    'txPowerPut': '/ms/0/0x10a8/PUT',
+    'bcnPwrLevelGet': '/ms/0/0x100e/GET',
+    'bcnPwrLevelPut': '/ms/0/0x100e/PUT',
+    'preferredNcGet': '/ms/0/0x1002/GET',
+    'preferredNcPut': '/ms/0/0x1002/PUT',
+    'nwSearchGet': '/ms/0/0x1001/GET',
+    'nwSearchPut': '/ms/0/0x1001/PUT',
 }
 
 
@@ -187,6 +196,11 @@ class GoCoaxAPI:
         miscphyinfo = self.post_data(ENDPOINTS['miscphyinfo'])
         device_info['miscphyinfo'] = miscphyinfo['data']
 
+        device_info['txPower'] = self.post_data(ENDPOINTS['txPowerGet']).get('data', 0)
+        device_info['bcnPwrLevel'] = self.post_data(ENDPOINTS['bcnPwrLevelGet']).get('data', 0)
+        device_info['preferredNc'] = self.post_data(ENDPOINTS['preferredNcGet']).get('data', 0)
+        device_info['nwSearch'] = self.post_data(ENDPOINTS['nwSearchGet']).get('data', 0)
+
         return device_info
 
     def byte2ascii(self, hex_str):
@@ -295,7 +309,47 @@ class GoCoaxAPI:
             "eth_rx_good": rxgood,
             "eth_rx_bad": rxbad,
             "eth_rx_dropped": rxdropped,
+            "tx_power": self._parse_int(device_info.get("txPower", 0)),
+            "beacon_power_level": self._parse_int(device_info.get("bcnPwrLevel", 0)),
+            "preferred_nc": bool(self._parse_int(device_info.get("preferredNc", 0)) & 0x1),
+            "network_search": bool(self._parse_int(device_info.get("nwSearch", 0)) & 0x1),
         }
+
+    def _parse_int(self, data) -> int:
+        """Parse a single int from a device response data field (integer or hex string)."""
+        if isinstance(data, list):
+            val = data[0]
+            return int(val, 16) if isinstance(val, str) else int(val)
+        return int(data)
+
+    def _read_setting(self, endpoint: str) -> int:
+        resp = self.post_data(endpoint)
+        return self._parse_int(resp.get("data", 0))
+
+    def _write_setting(self, endpoint: str, value: int) -> None:
+        self._session.get(self._base_url + '/index.html', verify=False, timeout=5)
+        self.post_data(endpoint, payload_dict={"data": [value]})
+
+    def set_tx_power(self, value: int) -> None:
+        self._write_setting(ENDPOINTS['txPowerPut'], value)
+
+    def set_beacon_power_level(self, value: int) -> None:
+        self._write_setting(ENDPOINTS['bcnPwrLevelPut'], value)
+
+    def set_preferred_nc(self, enabled: bool) -> None:
+        self._write_setting(ENDPOINTS['preferredNcPut'], int(enabled))
+
+    def set_network_search(self, enabled: bool) -> None:
+        self._write_setting(ENDPOINTS['nwSearchPut'], int(enabled))
+
+    def restore(self) -> None:
+        """Restore factory defaults then reboot."""
+        self._session.get(self._base_url + '/index.html', verify=False, timeout=5)
+        try:
+            self.post_data(ENDPOINTS['restore'], referer='/index.html')
+        except requests.exceptions.ConnectionError:
+            pass
+        self.reboot()
 
     # --------------------------------------------------------------------------
     # reboot

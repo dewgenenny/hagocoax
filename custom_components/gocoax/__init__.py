@@ -5,7 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 
-PLATFORMS: list[str] = ["sensor", "button"]
+PLATFORMS: list[str] = ["binary_sensor", "sensor", "button", "number", "switch"]
 
 _LOGGER = logging.getLogger(__name__)
 
