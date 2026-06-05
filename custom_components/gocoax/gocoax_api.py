@@ -20,6 +20,7 @@ ENDPOINTS = {
     'ChipID': '/ms/1/0x303/GET',
     'gpio': '/ms/1/0xb17',
     'miscm25phyinfo': '/ms/0/0x7f',
+    'reboot': '/ms/1/0xb00',
 }
 
 
@@ -295,6 +296,17 @@ class GoCoaxAPI:
             "eth_rx_bad": rxbad,
             "eth_rx_dropped": rxdropped,
         }
+
+    # --------------------------------------------------------------------------
+    # reboot
+    # --------------------------------------------------------------------------
+    def reboot(self):
+        """Trigger a device reboot. Fetches CSRF token via reboot.html first."""
+        self._session.get(self._base_url + '/reboot.html', verify=False, timeout=5)
+        try:
+            self.post_data(ENDPOINTS['reboot'], referer='/reboot.html')
+        except requests.exceptions.ConnectionError:
+            pass  # device drops the connection immediately on reboot
 
     # --------------------------------------------------------------------------
     # get_phy_rates: calculates node-to-node rates (your original code, adapted)

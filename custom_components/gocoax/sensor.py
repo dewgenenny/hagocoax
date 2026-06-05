@@ -35,14 +35,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     This includes both standard sensors (SoC version, link, etc.)
     and dynamic sensors for PHY rates among discovered MoCA nodes.
     """
-    coordinator = GoCoaxCoordinator(hass, entry)
-    # Do the first refresh so we have data to discover node IDs
-    await coordinator.async_config_entry_first_refresh()
-
-    if not coordinator.last_update_success:
-        _LOGGER.warning(
-            "Initial connection to GoCoax failed; check credentials/logs"
-        )
+    coordinator = hass.data[DOMAIN][entry.entry_id]
 
     # 1) Create standard "main" sensors (device info, link status, etc.)
     main_sensors = []
